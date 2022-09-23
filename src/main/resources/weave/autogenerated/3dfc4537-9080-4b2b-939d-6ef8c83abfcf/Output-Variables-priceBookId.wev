@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_3dfc4537_9080_4b2b_939d_6ef8c83abfcf_Output_Variables_priceBookId = String | Null
+

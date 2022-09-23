@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties": {
+    "AccountId": {
+      "type": "string"
+    },
+    "transactionId": {
+      "type": "string"
+    },
+    "customerName": {
+      "type": "string"
+    },
+    "customerFirstName": {
+      "type": "string"
+    },
+    "customerLastName": {
+      "type": "string"
+    },
+    "emailAddress": {
+      "type": "string"
+    },
+    "Phone": {
+      "type": "string"
+    },
+    "Status": {
+      "type": "string"
+    },
+    "paymentMethod": {
+      "type": "string"
+    },
+    "TotalAmount": {
+      "type": "integer"
+    },
+    "orderCurrency": {
+      "type": "string"
+    },
+    "stationId": {
+      "type": "string"
+    },
+    "stationName": {
+      "type": "string"
+    },
+    "orderProducts": {
+      "type": "array",
+      "items": [
+        {
+          "type": "object",
+          "properties": {
+            "unitPrice": {
+              "type": "number"
+            },
+            "adjustedTax": {
+              "type": "number"
+            },
+            "isBonusProduct": {
+              "type": "boolean"
+            },
+            "isBundledProduct": {
+              "type": "boolean"
+            },
+            "isGift": {
+              "type": "boolean"
+            },
+            "productId": {
+              "type": "string"
+            },
+            "productName": {
+              "type": "string"
+            },
+            "quantityUnit": {
+              "type": "string"
+            },
+            "quantityValue": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "unitPrice",
+            "adjustedTax",
+            "isBonusProduct",
+            "isBundledProduct",
+            "isGift",
+            "productId",
+            "productName",
+            "quantityUnit",
+            "quantityValue"
+          ]
+        }
+      ]
+    }
+  },
+  "required": [
+    "AccountId",
+    "transactionId",
+    "customerName",
+    "customerFirstName",
+    "customerLastName",
+    "emailAddress",
+    "Phone",
+    "Status",
+    "paymentMethod",
+    "TotalAmount",
+    "orderCurrency",
+    "stationId",
+    "stationName",
+    "orderProducts"
+  ]
+}

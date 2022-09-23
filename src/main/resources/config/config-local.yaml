@@ -1,0 +1,14 @@
+http:
+  host: "0.0.0.0"
+  port: "8082"
+  
+sfdc-loyalty:
+  username: "makrem.meksi@loyalty.com"
+  password: "Mo*vtaci1992"
+
+
+solace:
+  username: "solace-cloud-client"
+  password: "lbsiqmpof4vivor49l1omapukj"
+  messageVPN: "transaction-api"
+  brokerHost: "tcps://mr4e16qf4y7jz.messaging.solace.cloud:55443"

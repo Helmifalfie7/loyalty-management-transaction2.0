@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:anypoint-mq="http://www.mulesoft.org/schema/mule/anypoint-mq" xmlns:validation="http://www.mulesoft.org/schema/mule/validation"
+	xmlns:solace="http://www.mulesoft.org/schema/mule/solace"
+	xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/solace http://www.mulesoft.org/schema/mule/solace/current/mule-solace.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/anypoint-mq http://www.mulesoft.org/schema/mule/anypoint-mq/current/mule-anypoint-mq.xsd">
+	
+	<configuration-properties doc:name="Configuration properties" doc:id="ae47ee83-3b17-4f7c-b4e2-fff0ba02d1d7" file="config.properties" />
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="f83f786d-907b-4325-8f09-8cb6591d862c" >
+		<salesforce:basic-connection username="${sflm.username}" password="${sflm.password}" />
+	</salesforce:sfdc-config>
+	<anypoint-mq:config name="Anypoint_MQ_Config" doc:name="Anypoint MQ Config" doc:id="6846f28b-75cf-4f34-b180-08b0cef9a04e" >
+		<anypoint-mq:connection clientId="e0608ed91edc4e048eafda382ba296f0" clientSecret="94F171123a2647Be826A8d45d17f0e76" />
+	</anypoint-mq:config>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="f1128e30-af1b-4e85-b51f-74c31a9195e4" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="post-transactionFlow" doc:id="6ef93003-64c9-43a7-96fc-fa4083d1635b" >
+		<http:listener doc:name="/transaction" doc:id="59648d5d-33d6-4dd7-9279-c7b5025b21ac" path="/transaction" config-ref="HTTP_Listener_config">
+			<http:error-response >
+				<http:body ><![CDATA[#[payload]]]></http:body>
+			</http:error-response>
+		</http:listener>
+		<json:validate-schema doc:name="Validate schema" doc:id="dc30b4c1-129f-4a66-89f9-1fbdadd00d52" schema="schemas/inputpayload.json"/> [STUDIO] --&gt;
+		<logger level="INFO" doc:name="Logger" doc:id="66c76b04-daaf-4ea7-91d2-7c60deb34358" message="#[payload]"/>
+		<anypoint-mq:publish doc:name="Publish" doc:id="891a9649-2e62-4241-a1d7-612cfc7c5088" config-ref="Anypoint_MQ_Config" destination="emarat-transaction"/>
+		<ee:transform doc:name="Transform Message" doc:id="d37ea45f-4ab8-4cdd-99ba-3455c1b9be47" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"code": "202",
+	"message": "Accepted",
+	"correlationId": correlationId
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="03fa7eff-888c-4194-a400-9d1bc632c532" type="JSON:INVALID_INPUT_JSON, JSON:INVALID_SCHEMA, JSON:SCHEMA_NOT_FOUND, JSON:SCHEMA_NOT_HONOURED">
+				<set-variable value="406" doc:name="Http Status" doc:id="0b8c790c-e69d-46bf-aa99-d6e7c4b3c5f5" variableName="Http Status"/>
+				<set-variable value="#[error.description]" doc:name="error message" doc:id="6483bf6b-7cb6-49af-ba4e-45a42f892c9a" variableName="error message"/>
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="8a8108fd-d6ff-410f-93dd-d23449ecd3a3" type="ANYPOINT-MQ:CONNECTIVITY, ANYPOINT-MQ:DESTINATION_NOT_FOUND, ANYPOINT-MQ:ILLEGAL_BODY, ANYPOINT-MQ:PUBLISHING, ANYPOINT-MQ:RETRY_EXHAUSTED">
+				<set-variable value="500" doc:name="Http Status" doc:id="5b406473-ee33-446a-9228-9c65bf212c60" variableName="Http Status"/>
+				<set-variable value="#[error.description]" doc:name="error message" doc:id="daf1a83c-cf79-4229-8776-adbe29b4099e" variableName="error message"/>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="post-transactionFlow1" doc:id="dd58811f-181b-40ab-ab87-08f7a13425bf" >
+		<http:listener doc:name="/testConsume" doc:id="50ac033b-ffa5-41db-8b32-68f14d1d25fa" path="/testConsume" config-ref="HTTP_Listener_config"/>
+		<flow-ref doc:name="Consume-transactionFlow" doc:id="6c675aa3-19e9-4c46-b548-d0aeb8c02725" name="Consume-transactionFlow"/>
+	</flow>
+	<flow name="Consume-transactionFlow" doc:id="c0a22484-cb1e-42d8-9ed4-b01dd696bc6d" >
+		<anypoint-mq:subscriber doc:name="Subscriber" doc:id="d9054221-39c7-40d2-95c8-243d7b830dab" config-ref="Anypoint_MQ_Config" destination="emarat-transaction"/>
+		<ee:transform doc:name="payload" doc:id="37828545-59da-4dfe-8bfc-e18cb8c8f975" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="AccountId" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.AccountId]]></ee:set-variable>
+				<ee:set-variable variableName="mainpayload" ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-variable>
+			
+</ee:variables>
+		
+</ee:transform>
+		<logger level="INFO" doc:name="AccountId" doc:id="6762d84e-48ed-446c-9d2b-025d8b3c5103" message="#[vars.AccountId]"/>
+		<scatter-gather doc:name="Scatter-Gather" doc:id="e50e9905-84a2-4677-b956-43aa10131b40" >
+			<route >
+				<salesforce:query doc:name="ProgramId" doc:id="0758b0a6-d90c-4abe-a59a-5a9c4c996c02" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query><![CDATA[select id  from LoyaltyProgram where Status ='Active']]></salesforce:salesforce-query>
+		</salesforce:query>
+				<set-variable value="#[payload.Id reduce ($$+$)]" doc:name="LoyaltyProgramId" doc:id="33adc352-4258-4a38-835b-0b74aa225ea2" variableName="ProgramId" />
+				<logger level="INFO" doc:name="ProgramId" doc:id="c3cd4e8f-c19c-479e-acfa-e8c10cf619d8" message="#[vars.ProgramId]"/>
+			
+</route>
+			<route >
+				<salesforce:query doc:name="MemberId" doc:id="4af7f7a2-0a77-4483-b218-51e9aac7cd50" config-ref="Salesforce_Config">
+					<salesforce:salesforce-query ><![CDATA[select id from LoyaltyProgramMember  where AccountId  =':AccountId' ]]></salesforce:salesforce-query>
+					<salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+	"AccountId" : vars.AccountId
+}]]]></salesforce:parameters>
+				</salesforce:query>
+				<set-variable value="#[payload.Id reduce ($$+$)]" doc:name="MemberId" doc:id="a4a8eaaa-e9c9-4476-a3b9-a9d295ed1556" variableName="MemberId"/>
+				<logger level="INFO" doc:name="MemberId" doc:id="6ee51e9a-e6a6-4e1b-b76c-2f29c0d10ec5" message="#[vars.MemberId]"/>
+			
+</route>
+		
+</scatter-gather>
+		<flow-ref doc:name="post-Order" doc:id="209ee4b3-5ce2-4776-860d-c60e6d797154" name="post-Order" />
+		<ee:transform doc:name="Prepare Data" doc:id="37482dff-bdca-4e34-a49c-47aebeb837ba">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+[{
+	"LoyaltyProgramId": vars.ProgramId,
+	"MemberId" : vars.MemberId,
+	"Status" : vars.mainpayload.Status ,
+	"ActivityDate": now () as DateTime {format : "yyyy-MM-dd'T'HH:mm:00.000+0000"},
+	"OrderId" : vars.orderId,
+	"PaymentMethod": vars.mainpayload.paymentMethod
+	
+}]
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:create type="TransactionJournal" doc:name="Create Transaction" doc:id="38642916-a804-4dd1-8d5a-ee552fe763cc" config-ref="Salesforce_Config"/>
+		<choice doc:name="Choice" doc:id="229d339a-bc1b-41c0-a512-4acb0cb7f713" >
+			<when expression="#[payload.successful == false]">
+				<ee:transform doc:name="error" doc:id="90ab7a36-9bc6-42ed-8874-71f8fd9064c3" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"code": "400",
+	"message": "Journal cannot be created"
+	
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<logger level="INFO" doc:name="log fail" doc:id="345f669d-570f-4ef8-9287-92acb0d69245" message='Transaction has not been created'/>
+			
+</when>
+			<otherwise >
+				<ee:transform doc:name="success" doc:id="58efc707-85a3-4c9c-bace-1fc44a14d6cf">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"code": "200",
+	"message": "Journal created successfully",
+	"correlationId": payload.items.id
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+			
+</otherwise>
+		</choice>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="b2fd82db-b802-4a63-bc36-2d405aa61893" type="ANY">
+				<set-variable value="500" doc:name="Http Status" doc:id="435381c1-6f3d-4725-9a14-136cd71be15b" variableName="Http Status"/>
+				<set-variable value="#[error.description]" doc:name="error message" doc:id="720f9572-df64-4c38-971f-a124c25969b8" variableName="error message"/>
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="a29d6088-622f-4763-a8f1-6a541d808d7d" type="SALESFORCE:CONNECTIVITY, SALESFORCE:INVALID_INPUT, SALESFORCE:INVALID_RESPONSE, SALESFORCE:LIMIT_EXCEEDED, SALESFORCE:MUTUAL_AUTHENTICATION_FAILED, SALESFORCE:NOT_FOUND, SALESFORCE:TIMEOUT" >
+				<set-variable value="500" doc:name="httpStatus" doc:id="23341e43-3b41-486b-9c55-f08caac9972b" variableName="httpStatus" />
+				<set-variable value="#[error.description]" doc:name="error message" doc:id="4e2776f3-552f-4803-9755-42b829015f45" variableName="error message" />
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="c8aade44-b613-4139-8db9-6b7453805b71" type="VALIDATION:INVALID_BOOLEAN" >
+				<set-variable value="406" doc:name="httpStatus" doc:id="616b4d2e-1b25-421e-8140-847617adfd22" variableName="httpStatus" />
+				<set-variable value="#[error.description]" doc:name="error message" doc:id="01b60d94-8777-4c48-a1b1-401b5901ebb8" variableName="error message" />
+			</on-error-propagate>
+		
+</error-handler>
+	</flow>
+	<flow name="post-Order" doc:id="3dfc4537-9080-4b2b-939d-6ef8c83abfcf" >
+		<ee:transform doc:name="prepare order data" doc:id="e7aa477b-ff68-48cd-96c2-dabc8562f38e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:query doc:name="selectpricebookId" doc:id="e978b21c-76d5-412b-b074-45b6a742cecc" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[select Id from Pricebook2 where Name = 'EMARAT Price book' limit 200]]></salesforce:salesforce-query>
+		</salesforce:query>
+		<ee:transform doc:name="Transform Message" doc:id="75d5266f-51fa-47f4-b022-94d39efb79dc" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<choice doc:name="Choice" doc:id="f583f4db-8bbd-4ed4-a466-eb72981563cb">
+			<when expression="#[sizeOf(payload) == 0]">
+				<validation:is-true doc:name="Is true" doc:id="0267e370-c14e-4a4a-b1c7-bc1ecd0208d2" expression="#[payload.successful]" message='#["Error select priceBookId "]' />
+			</when>
+					<otherwise>
+				<set-variable value="#[payload.Id reduce ($$ ++ $)]" doc:name="priceBookId" doc:id="777688d3-9c7c-4268-8135-ca22c0a98cc9" variableName="priceBookId"/>
+				<ee:transform doc:name="Transform Message" doc:id="a16f4182-243e-42f1-a63d-f193ae16b11c">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+[{
+	AccountId: vars.AccountId,
+	EffectiveDate: now() as Date {
+		format :"yyyy-MM-dd"
+	},
+	Pricebook2Id: vars.priceBookId,
+	Status: "Draft"
+}]]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<salesforce:create type="Order" doc:name="Create-Order" doc:id="345b9242-6108-4d5c-8a9c-9f1ea64d3226" config-ref="Salesforce_Config"/>
+				<choice doc:name="Choice" doc:id="e15e1443-bd45-490e-9d3d-8ed516a8eca0" >
+					<when expression="#[payload.successful == false]">
+						<validation:is-true doc:name="Is true" doc:id="5252ec9e-32fe-4c44-bff6-67344277e800" expression="#[payload.successful]" message='#["Error creation order"]'/>
+					</when>
+					<otherwise >
+						<logger level="INFO" doc:name="Logger" doc:id="f1409ac3-ac63-4733-91fe-bc58cffe23ba" message="#[payload]" />
+						<set-variable value="#[payload.items[0].id as String]" doc:name="Set orderId" doc:id="67c35962-e267-4139-b7e1-917ca1fd7ffd" variableName="orderId" />
+						<flow-ref doc:name="mapOrderItem" doc:id="ba10927a-252d-4d71-afc9-771f019e4c70" name="addOrderItem" />
+						<ee:transform doc:name="Transform Message" doc:id="eb29f172-eb4f-4f8b-aa9e-31759b3e75a2" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"code": "202",
+	"message": "Accepted: Order created in SFSC",
+	"orderId": vars.orderId
+}]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+					</otherwise>
+				</choice>
+			</otherwise>
+		</choice>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="2f287385-e1ac-45af-86b8-01f0b5af46e4" type="ANY" >
+				<set-variable value="400" doc:name="httpStatus" doc:id="7d28c5cb-44ee-4a44-885a-5b72d26f02d0" variableName="httpStatus" />
+				<set-variable value="#[error.description]" doc:name="error message" doc:id="88cfc640-00df-46ab-89b3-03de31ab2eee" variableName="error message" />
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="6ce0ed2f-e3fe-486e-aaf2-7f7185122b3e" type="SALESFORCE:CONNECTIVITY, SALESFORCE:INVALID_INPUT, SALESFORCE:INVALID_RESPONSE, SALESFORCE:LIMIT_EXCEEDED, SALESFORCE:MUTUAL_AUTHENTICATION_FAILED, SALESFORCE:NOT_FOUND, SALESFORCE:TIMEOUT" >
+				<set-variable value="500" doc:name="httpStatus" doc:id="5508b233-278f-4f71-9c47-6e43976a6675" variableName="httpStatus" />
+				<set-variable value="#[error.description]" doc:name="error message" doc:id="4a51aa7f-154b-4ea3-a3e0-32e85d1f25e7" variableName="error message" />
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="68eaf8c1-2386-49d8-9c5a-6547fcd3ea84" type="VALIDATION:INVALID_BOOLEAN" >
+				<set-variable value="406" doc:name="httpStatus" doc:id="bff7ba5b-be65-45cd-b963-2bd1391a3028" variableName="httpStatus" />
+				<set-variable value="#[error.description]" doc:name="error message" doc:id="9b9f4c9d-29d1-44ce-894e-2f9593923e2b" variableName="error message" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="addOrderItem" doc:id="6fd25644-24fd-4d71-99be-25f1956897c0" >
+		<foreach doc:name="For Each product" doc:id="06f5cd2b-1c17-4092-ad91-ccdbadbd69d1" collection="#[vars.mainpayload.orderProducts]">
+			<set-variable value="#[payload]" doc:name="productItem" doc:id="b77127e0-b3fa-4ff3-a44c-0de27827522c" variableName="productItem"/>
+			<logger level="INFO" doc:name="productItem" doc:id="dac7054e-86a0-4bac-9ad7-144e940d9d00" message="#[vars.ProductItem]"/>
+			<salesforce:query doc:name="selectProduct-Code" doc:id="6f31adee-3f4e-42f5-889b-dbfc1b58858d" config-ref="Salesforce_Config">
+				<salesforce:salesforce-query ><![CDATA[select ProductCode from Product2 where Name =':name']]></salesforce:salesforce-query>
+				<salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+		"name" : payload.productName as String
+}]]]></salesforce:parameters>
+			</salesforce:query>
+			<choice doc:name="Choice" doc:id="e2d1b5ca-fc40-4c30-8837-bc768718b439" >
+				<when expression="#[sizeOf(payload)==0]">
+					<set-variable value="#[vars.ProductItem.productName]" doc:name="productName" doc:id="f6845a54-0488-4a62-a3d2-8944fbaac5f9" variableName="productName"/>
+					<validation:is-true doc:name="Is true" doc:id="c7b37891-df8f-4cc8-ba45-fa24c8a6ceae" expression="#[payload.successful]" message='#["Product code not found is priceBook for product: " ++ vars.ProductItem.productName]'/>
+				</when>
+				<otherwise >
+					<ee:transform doc:name="Setvariable productCode" doc:id="e838bab4-0941-4fa2-84d7-501b67b6b02a" >
+						<ee:message >
+						</ee:message>
+						<ee:variables >
+							<ee:set-variable variableName="productCode" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.ProductCode reduce ($$+$ ) as String]]></ee:set-variable>
+						</ee:variables>
+					</ee:transform>
+					<salesforce:query doc:name="selectPricebook-EntryId" doc:id="2748b8ed-0982-4fef-990d-df2acb73b9cd" config-ref="Salesforce_Config">
+						<salesforce:salesforce-query ><![CDATA[select id from PricebookEntry where Pricebook2.Name ='EMARAT Price book' and ProductCode= ':productCode' ]]></salesforce:salesforce-query>
+						<salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+	"productCode" : vars.productCode as String
+}]]]></salesforce:parameters>
+					</salesforce:query>
+					<set-variable value="#[payload.Id reduce($$+$)]" doc:name="pricebookentryId" doc:id="258bc50a-291c-4b27-820a-7582ca0b9d6b" variableName="pricebookentryId"/>
+					<ee:transform doc:name="prepareOrderItem" doc:id="6f195b32-5b61-45d0-94d3-1d0ed997582a" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+[{
+	OrderId: vars.orderId ,
+    PricebookEntryId: vars.pricebookentryId,
+    UnitPrice:vars.ProductItem.unitPrice,
+    Quantity: vars.ProductItem.quantityValue
+}]
+	
+]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<salesforce:create type="OrderItem" doc:name="AddOrderItem" doc:id="1c95e12e-f3b0-4799-885e-90760700dc8b" config-ref="Salesforce_Config"/>
+					<choice doc:name="Choice" doc:id="1a5d8c29-e60b-4cbb-acf6-bb06d787a714" >
+						<when expression="#[payload.successful == false]">
+							<validation:is-true doc:name="Is true" doc:id="efa4fb3f-09de-47ea-8dc0-e8f98d0e64d1" expression="#[payload.successful]" message='#["Failure add Item to order"]'/>
+						</when>
+						<otherwise >
+							<logger level="INFO" doc:name="Logger" doc:id="1a5a819b-ac1b-47ef-8549-428207c7fc65" message='#["Success Add Product " ++ vars.ProductItem.productName as String ++&#10; " to order"]'/>
+						</otherwise>
+					</choice>
+				</otherwise>
+			</choice>
+		</foreach>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="6019cff0-e4db-4416-991b-3c8d4b3612c1" type="ANY">
+				<set-variable value="400" doc:name="httpStatus" doc:id="528fa816-f9b4-4171-b9c9-b052259a0f89" variableName="httpStatus"/>
+				<set-variable value="#[error.description]" doc:name="error message" doc:id="fb584721-d512-410d-84a3-b63348ecad11" variableName="error message"/>
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="d95b1784-8e2f-452d-93de-38dbcc0c876b" type="SALESFORCE:CONNECTIVITY, SALESFORCE:INVALID_INPUT, SALESFORCE:INVALID_RESPONSE, SALESFORCE:LIMIT_EXCEEDED, SALESFORCE:MUTUAL_AUTHENTICATION_FAILED, SALESFORCE:NOT_FOUND, SALESFORCE:TIMEOUT">
+				<set-variable value="500" doc:name="httpStatus" doc:id="1896fcc0-e541-45e6-8a1e-f05a385e85bc" variableName="httpStatus"/>
+				<set-variable value="#[error.description]" doc:name="error message" doc:id="22449d53-4673-4982-a3c0-b32896c5f695" variableName="error message" />
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="5fa49f52-e798-4f27-9004-deca847ad677" type="VALIDATION:INVALID_BOOLEAN">
+				<set-variable value="406" doc:name="httpStatus" doc:id="0d48e077-6093-4720-a21e-86e96b52c70d" variableName="httpStatus"/>
+				<set-variable value="#[error.description]" doc:name="error message" doc:id="fdd7eab0-3d7c-4628-8f01-aae535f97072" variableName="error message" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>
